@@ -25,6 +25,9 @@ function RippledLedger (options) {
   }.bind(this))
 }
 
+RippledLedger.TYPE = 'https://ripple.com/ilp/v1'
+RippledLedger.validateTransfer = require('./lib/validate')
+
 // template - {amount}
 RippledLedger.prototype.makeFundTemplate = function (template) {
   template.address = this.credentials.address
@@ -67,8 +70,8 @@ RippledLedger.prototype.putTransfer = function * (transfer) {
 }
 
 // postTransfer - function*(transfer)
-RippledLedger.prototype.subscribe = function * (target_uri) {
-  let subscriber = new Subscriber(this.client, this.sourceSubscriptions, target_uri)
+RippledLedger.prototype.subscribe = function * (postTransfer) {
+  let subscriber = new Subscriber(this.client, this.sourceSubscriptions, postTransfer)
   yield this.client.subscribe(function * (notif) {
     yield subscriber.onTransaction(notif)
   })

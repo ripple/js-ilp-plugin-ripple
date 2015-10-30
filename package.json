@@ -19,14 +19,12 @@
   "homepage": "https://github.com/ripple/five-bells-trader-lib-ripple#readme",
   "dependencies": {
     "@ripple/five-bells-condition": "1.1.0",
-    "@ripple/five-bells-shared": "7.0.1",
+    "@ripple/five-bells-shared": "7.1.0",
     "co": "^4.6.0",
-    "co-request": "^1.0.0",
     "lodash": "^3.10.1",
     "priorityqueuejs": "^1.0.0",
     "ripple-lib": "0.13.0-rc11",
-    "sjcl-codec": "^0.1.0",
-    "uuid4": "^1.0.0"
+    "sjcl-codec": "^0.1.0"
   },
   "devDependencies": {
     "eslint": "^1.7.3",

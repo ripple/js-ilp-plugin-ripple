@@ -5,14 +5,13 @@ Connect a five-bells-trader to Rippled.
 # Example
 
     var trader = require('@ripple/five-bells-trader')
-    trader.addLedger('rippled',
-      require('@ripple/five-bells-trader-lib-ripple'))
+    trader.addLedger(require('@ripple/five-bells-trader-lib-ripple'))
     trader.listen()
 
 Credentials look like:
 
     {
-      "type":    "rippled",
+      "type":    "https://ripple.com/ilp/v1",
       "address": "rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       "secret":  "sXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     }
