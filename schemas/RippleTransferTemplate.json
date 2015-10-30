@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema",
+  "title": "RippleTransferTemplate",
+  "description": "A template for ledger-local transfer of funds that can be missing some transfer fields",
+  "type": "object",
+  "properties": {
+    "type": {
+      "description": "Unique identifier representing the transfer type",
+      "$ref": "Iri.json"
+    },
+    "id": {
+      "description": "Resource identifier",
+      "$ref": "Iri.json"
+    },
+    "ledger": {
+      "description": "The ledger where the transfer will take place",
+      "$ref": "Iri.json"
+    },
+    "part_of_payment": {
+      "description": "Larger payment that this transfer is a part of.",
+      "$ref": "Iri.json"
+    },
+    "state": {
+      "description": "The current state of the transfer (informational only)",
+      "$ref": "TransferState.json"
+    },
+    "execution_condition": {
+      "description": "The condition for executing the transfer",
+      "$ref": "Condition.json"
+    },
+    "execution_condition_fulfillment": {
+      "description": "Proof that the execution_condition has been met",
+      "$ref": "ConditionFulfillment.json"
+    },
+    "expiry_duration": {
+      "description": "Time in seconds between proposed_at and expires_at. Set in quotes from payment systems but not valid in actual transfers",
+      "$ref": "NonNegativeDuration.json"
+    },
+    "expires_at": {
+      "description": "The date when the transfer expires and will be rejected by the ledger",
+      "$ref": "Date.json"
+    },
+    "timeline": {
+      "description": "Timeline of the transfer's state transitions",
+      "$ref": "Timeline.json"
+    },
+    "debits": {
+      "description": "Funds that go into the transfer",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "RippleFundsTemplate.json" }
+    },
+    "credits": {
+      "description": "Funds that come out of the transfer",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "RippleFundsTemplate.json" }
+    },
+    "payment_sequence": {
+      "description": "The Sequence number of the SuspendedPaymentCreate transaction",
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}
