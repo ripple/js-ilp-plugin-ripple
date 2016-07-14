@@ -1,7 +1,7 @@
 {
-  "name": "five-bells-trader-lib-ripple",
+  "name": "ilp-plugin-ripple",
   "version": "1.0.0",
-  "description": "Five Bells trader plugin for rippled support",
+  "description": "ILP ledger plugin for rippled support",
   "main": "index.js",
   "scripts": {
     "lint": "eslint .",
