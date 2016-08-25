@@ -1,101 +1,136 @@
 'use strict'
-const _ = require('lodash')
 const co = require('co')
-const Condition = require('@ripple/five-bells-condition').Condition
-const UnmetConditionError = require('@ripple/five-bells-shared/errors/unmet-condition-error')
-const TransferAPI = require('./lib/transfer-api')
-const Subscriber = require('./lib/subscriber')
-const utils = require('./lib/utils')
+const formats = require('./lib/formats/optimistic')
+const EventEmitter = require('events')
+const RippleAPI = require('ripple-lib').RippleAPI
+
+const find = require('lodash/fp/find')
+const findXrpBalance = find(['currency', 'XRP'])
 
 // options -
-//   ledger_id   - String, e.g. "wss://s.altnet.rippletest.net:51233"
-//   credentials - {address, secret}
+//   server      - String, e.g. "wss://s.altnet.rippletest.net:51233"
+//   address     - String, Ripple address
+//   secret      - String, Ripple secret
 //   log         - A logger instance
 //   sourceSubscriptions
-function RippledLedger (options) {
-  this.id = options.ledger_id
-  this.credentials = options.credentials // {address, secret}
-  this.log = options.log || console
-  this.sourceSubscriptions = options.sourceSubscriptions
-  this.client = new TransferAPI(this.id, this.credentials, this.log)
+class RipplePlugin extends EventEmitter {
+  constructor (options) {
+    super()
 
-  this.client.transferPool.on('expire', function (transfers) {
-    co(this._rejectTransfers.bind(this), transfers)
-      .catch(this.onExpireError.bind(this))
-  }.bind(this))
-}
+    this.server = options.server
+    this.address = options.address
+    this.secret = options.secret
+    this.log = options.log || console
+    this.sourceSubscriptions = options.sourceSubscriptions
+    // this.client = new TransferAPI(this.id, this.credentials, this.log)
+    this.api = new RippleAPI({ server: this.server })
+    this.connected = false
 
-RippledLedger.TYPE = 'https://ripple.com/ilp/v1'
-RippledLedger.validateTransfer = require('./lib/validate')
+    // this.client.transferPool.on('expire', function (transfers) {
+    //   co(this._rejectTransfers.bind(this), transfers)
+    //   .catch(this.onExpireError.bind(this))
+    // }.bind(this))
 
-// template - {amount}
-RippledLedger.prototype.makeFundTemplate = function (template) {
-  template.address = this.credentials.address
-  return template
-}
+    this.api.on('connected', () => {
+      // Ripple API doesn't officially support subscribing to transactions, but
+      // we can do it by sending a subscribe request manually.
+      this.api.connection.request({
+        command: 'subscribe',
+        accounts: [this.address]
+      }).catch((err) => {
+        console.warn('ilp-plugin-ripple: unable to subscribe to transactions: ' +
+          (err && err.toString()))
+      })
 
-RippledLedger.prototype.getState = function (transfer) {
-  throw new Error('RippledLedger#getState is not implemented')
-}
+      this.emit('connect')
+    })
 
-// pre-prepared -> place hold on debited funds -> prepared
-RippledLedger.prototype.putTransfer = function * (transfer) {
-  if (transfer.debits.length !== 1) {
-    throw new Error('XRP transfers must have exactly 1 debit')
+    this.api.on('disconnected', () => {
+      this.emit('disconnect')
+    })
+
+    // Listen for transactions
+    this.api.connection.on('transaction', (ev) => {
+      if (ev.engine_result !== 'tesSUCCESS') return
+      if (!ev.validated) return
+
+      this._onTransaction(ev.transaction)
+    })
   }
-  if (transfer.credits.length !== 1) {
-    throw new Error('XRP transfers must have exactly 1 credit')
+
+  connect () {
+    return this.api.connect().then(() => null)
   }
 
-  if (transfer.state === undefined) {
-    // do nothing: propose is a noop
-    transfer.state = 'proposed'
+  isConnected () {
+    return this.api.isConnected()
   }
-  if (transfer.state === 'proposed' && isAuthorized(transfer)) {
-    yield this.client.suspendedPaymentCreate(transfer)
+
+  disconnect () {
+    return this.api.disconnect().then(() => null)
   }
-  if (transfer.state === 'prepared') {
-    if (transfer.execution_condition &&
-      transfer.execution_condition_fulfillment) {
-      let isValidFulfillment = Condition.testFulfillment(transfer.execution_condition,
-        transfer.execution_condition_fulfillment)
-      if (!isValidFulfillment) {
-        throw new UnmetConditionError('Invalid ConditionFulfillment')
+
+  getAccount () {
+    return 'ripple.' + this.address
+  }
+
+  getBalance () {
+    return co.wrap(this._getBalance).call(this)
+  }
+
+  * _getBalance () {
+    const balances = yield this.api.getBalances(this.address)
+
+    return findXrpBalance(balances).value
+  }
+
+  getInfo () {
+    return Promise.resolve({
+      scale: 2,
+      precision: 4
+    })
+  }
+
+  getPrefix () {
+    return Promise.resolve('ripple.')
+  }
+
+  send (transfer) {
+    return co.wrap(this._send).call(this, transfer)
+  }
+
+  * _send (transfer) {
+    let transaction
+    if (transfer.execution_condition) {
+      throw new Error('Conditional payments are not yet implemented')
+    } else {
+      const ripplePayment = formats.outgoingIlpToRipple(this.address, transfer)
+      transaction = yield this.api.preparePayment(this.address, ripplePayment)
+    }
+
+    const signedTransaction = this.api.sign(transaction.txJSON, this.secret)
+    yield this.api.submit(signedTransaction.signedTransaction)
+
+    return Promise.resolve(null)
+  }
+
+  getConnectors () {
+    return Promise.resolve([])
+  }
+
+  _onTransaction (transaction) {
+    // Filter out non-XRP payments
+    if (typeof transaction.Amount !== 'string') return
+
+    // Optimistic payment
+    if (transaction.TransactionType === 'Payment') {
+      if (transaction.Destination === this.address) {
+        this.emit('incoming_transfer', formats.incomingRippleToIlp(transaction))
+      } else if (transaction.Account === this.address) {
+        this.emit('outgoing_transfer', formats.outgoingRippleToIlp(transaction))
       }
-      yield this.client.suspendedPaymentFinish(transfer)
-    } else if (!transfer.execution_condition) {
-      yield this.client.suspendedPaymentFinish(transfer)
     }
   }
 }
 
-// postTransfer - function*(transfer)
-RippledLedger.prototype.subscribe = function * (postTransfer) {
-  let subscriber = new Subscriber(this.client, this.sourceSubscriptions, postTransfer)
-  yield this.client.subscribe(function * (notif) {
-    yield subscriber.onTransaction(notif)
-  })
-}
-
-// /////////////////////////////////////////////////////////////////////////////
-// Expiration
-// /////////////////////////////////////////////////////////////////////////////
-
-RippledLedger.prototype._rejectTransfers = function * (transfers) {
-  yield transfers.map(this._rejectTransfer, this)
-}
-
-RippledLedger.prototype._rejectTransfer = function * (transfer) {
-  utils.setTransferState(transfer, 'rejected')
-  yield this.client.suspendedPaymentCancel(transfer)
-}
-
-RippledLedger.prototype.onExpireError = function (err) {
-  this.log.warn('expire error', err.stack)
-}
-
-function isAuthorized (transfer) {
-  return _.every(transfer.debits, 'authorized')
-}
-
-module.exports = RippledLedger
+module.exports = RipplePlugin

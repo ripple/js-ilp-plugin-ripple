@@ -1,22 +1,17 @@
-# five-bells-trader-lib-ripple
+# ilp-plugin-ripple
 
-Connect a five-bells-trader to Rippled.
+Connect an ilp-connector to Rippled. Currently supports non-conditional payments only.
 
 # Example
 
-    var trader = require('@ripple/five-bells-trader')
-    trader.addLedger(require('@ripple/five-bells-trader-lib-ripple'))
-    trader.listen()
+**TODO** Add more explanation
 
-Credentials look like:
-
-    {
-      "type":    "https://ripple.com/ilp/v1",
-      "address": "rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      "secret":  "sXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    }
-
-And be sure to set `TRADER_BACKEND`:
-
-    TRADER_BACKEND='fixerio-plus-xrp'
-
+``` json
+{
+  "type": "ripple",
+  "server": "wss://s.altnet.rippletest.net:51233",
+  "address": "r33L6z6LMD8Lk39iEQhyXeSWqNN7pFVaM6",
+  "secret": "ssyFYib1wv4tKrYfQEARxGREH6T3b",
+  "connector": "http://localhost:4000"
+}
+```
