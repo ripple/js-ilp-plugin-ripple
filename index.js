@@ -3,6 +3,7 @@ const co = require('co')
 const formats = require('./lib/formats/optimistic')
 const EventEmitter = require('events')
 const RippleAPI = require('ripple-lib').RippleAPI
+const debug = require('debug')('ilp-plugin-ripple')
 
 const find = require('lodash/fp/find')
 const findXrpBalance = find(['currency', 'XRP'])
@@ -102,14 +103,20 @@ class RipplePlugin extends EventEmitter {
   * _send (transfer) {
     let transaction
     if (transfer.execution_condition) {
+      debug('tried to do universal mode payment (which is not supported)')
       throw new Error('Conditional payments are not yet implemented')
     } else {
+      debug('send transfer', transfer)
       const ripplePayment = formats.outgoingIlpToRipple(this.address, transfer)
+      debug('converted to ripple payment format', ripplePayment)
       transaction = yield this.api.preparePayment(this.address, ripplePayment)
     }
 
+    debug('prepared ripple transaction', transaction)
     const signedTransaction = this.api.sign(transaction.txJSON, this.secret)
-    yield this.api.submit(signedTransaction.signedTransaction)
+    debug('signed ripple transaction', signedTransaction)
+    const result = yield this.api.submit(signedTransaction.signedTransaction)
+    debug('submitted ripple transaction', result)
 
     return Promise.resolve(null)
   }
