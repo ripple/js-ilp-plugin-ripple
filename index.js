@@ -72,7 +72,7 @@ class RipplePlugin extends EventEmitter {
   }
 
   getAccount () {
-    return 'ripple.' + this.address
+    return Promise.resolve('ripple.' + this.address)
   }
 
   getBalance () {
