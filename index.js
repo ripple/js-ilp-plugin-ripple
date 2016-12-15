@@ -1,7 +1,7 @@
 'use strict'
 const co = require('co')
 const formats = require('./lib/formats/optimistic')
-const EventEmitter = require('events')
+const EventEmitter = require('eventemitter2')
 const RippleAPI = require('ripple-lib').RippleAPI
 const debug = require('debug')('ilp-plugin-ripple')
 
@@ -96,7 +96,7 @@ class RipplePlugin extends EventEmitter {
     return Promise.resolve('ripple.')
   }
 
-  send (transfer) {
+  sendTransfer (transfer) {
     return co.wrap(this._send).call(this, transfer)
   }
 
@@ -132,9 +132,9 @@ class RipplePlugin extends EventEmitter {
     // Optimistic payment
     if (transaction.TransactionType === 'Payment') {
       if (transaction.Destination === this.address) {
-        this.emit('incoming_transfer', formats.incomingRippleToIlp(transaction))
+        this.emitAsync('incoming_transfer', formats.incomingRippleToIlp(transaction))
       } else if (transaction.Account === this.address) {
-        this.emit('outgoing_transfer', formats.outgoingRippleToIlp(transaction))
+        this.emitAsync('outgoing_transfer', formats.outgoingRippleToIlp(transaction))
       }
     }
   }
